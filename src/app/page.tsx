@@ -1,101 +1,308 @@
-import Image from "next/image";
+'use client';
+import { useRef, useEffect, useState } from 'react';
+import {
+  IconPlayerStop,
+  IconArrowDown,
+  IconArrowUp,
+  IconArrowLeft,
+  IconArrowRight,
+} from '@tabler/icons-react';
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+const Colors = {
+  BACKGROUND: 'black',
+  SNAKE: '#97f06c',
+};
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+const Direction = {
+  UP: 'UP',
+  DOWN: 'DOWN',
+  LEFT: 'LEFT',
+  RIGHT: 'RIGHT',
+  STOP: 'STOP',
+};
+
+let mapSize = 20;
+let gridSize = 25;
+let gameSpeed = 100;
+let panelHeight = mapSize;
+let panelWidth = mapSize;
+
+if (window.innerWidth < 768) {
+  mapSize = 18;
+  gridSize = 20;
+  gameSpeed = 100;
+  panelHeight = mapSize;
+  panelWidth = mapSize;
+  console.log('Mobile');
+}
+
+const SnakeGame = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [speed, setSpeed] = useState(gameSpeed);
+  const [snake, setSnake] = useState({
+    x: Math.floor(panelWidth / 2) * gridSize,
+    y: Math.floor(panelHeight / 2) * gridSize,
+  });
+  const [tailX, setTailX] = useState([snake.x]);
+  const [tailY, setTailY] = useState([snake.y]);
+  const [tailLength, setTailLength] = useState(0);
+  const [food, setFood] = useState({
+    x: Math.floor(Math.random() * (panelWidth - 1)) * gridSize,
+    y: Math.floor(Math.random() * (panelHeight - 1)) * gridSize,
+  });
+
+  const [direction, setDirection] = useState(Direction.STOP);
+  const [gameOver, setGameOver] = useState(false);
+  const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const drawGame = () => {
+      if (!canvasRef.current) return;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      // Clear canvas
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw background
+      context.fillStyle = Colors.BACKGROUND;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw grid pattern
+      for (let i = 0; i < panelWidth; i++) {
+        for (let j = 0; j < panelHeight; j++) {
+          context.fillStyle = (i + j) % 2 === 0 ? '#414368' : '#373A59';
+          context.fillRect(i * gridSize, j * gridSize, gridSize, gridSize);
+          context.strokeStyle = 'black';
+          context.strokeRect(i * gridSize, j * gridSize, gridSize, gridSize);
+        }
+      }
+
+      // Draw food
+      context.fillStyle = 'red';
+      context.fillRect(food.x, food.y, gridSize, gridSize);
+
+      // Draw snake's tail
+      for (let i = 0; i < tailLength; i++) {
+        context.fillStyle = Colors.SNAKE;
+        context.fillRect(tailX[i], tailY[i], gridSize, gridSize);
+        context.strokeStyle = 'black';
+        context.strokeRect(tailX[i], tailY[i], gridSize, gridSize);
+      }
+
+      // Draw snake's head
+      context.fillStyle = Colors.SNAKE;
+      context.fillRect(snake.x, snake.y, gridSize, gridSize);
+    };
+
+    const logic = () => {
+      // Move tail
+      const newTailX = [...tailX];
+      const newTailY = [...tailY];
+      let prevX = snake.x;
+      let prevY = snake.y;
+
+      for (let i = 0; i < tailLength; i++) {
+        const currentX = newTailX[i];
+        const currentY = newTailY[i];
+        newTailX[i] = prevX;
+        newTailY[i] = prevY;
+        prevX = currentX;
+        prevY = currentY;
+      }
+
+      setTailX(newTailX);
+      setTailY(newTailY);
+
+      // Move snake
+      switch (direction) {
+        case Direction.UP:
+          setSnake((prev) => ({ ...prev, y: prev.y - gridSize }));
+          break;
+        case Direction.DOWN:
+          setSnake((prev) => ({ ...prev, y: prev.y + gridSize }));
+          break;
+        case Direction.LEFT:
+          setSnake((prev) => ({ ...prev, x: prev.x - gridSize }));
+          break;
+        case Direction.RIGHT:
+          setSnake((prev) => ({ ...prev, x: prev.x + gridSize }));
+          break;
+        default:
+          break;
+      }
+
+      // Check border collision
+      if (
+        snake.x < 0 ||
+        snake.x >= panelWidth * gridSize ||
+        snake.y < 0 ||
+        snake.y >= panelHeight * gridSize
+      ) {
+        setGameOver(true);
+      }
+
+      // Check if snake eats food
+      if (snake.x === food.x && snake.y === food.y) {
+        setFood({
+          x: Math.floor(Math.random() * (panelWidth - 1)) * gridSize,
+          y: Math.floor(Math.random() * (panelHeight - 1)) * gridSize,
+        });
+        setScore((prev) => prev + 1);
+        setTailLength((prev) => prev + 1);
+        setSpeed((prev) => (prev > 50 ? prev - 2 : prev));
+      }
+
+      // Check self-collision
+      for (let i = 0; i < tailLength; i++) {
+        if (tailX[i] === snake.x && tailY[i] === snake.y) {
+          setGameOver(true);
+          break;
+        }
+      }
+    };
+
+    const gameInterval = setInterval(() => {
+      drawGame();
+      logic();
+    }, gameSpeed);
+
+    return () => {
+      clearInterval(gameInterval);
+    };
+  }, [snake, food, direction]);
+
+  //event listener for keyboard input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w') {
+        if (direction !== Direction.DOWN) {
+          setDirection(Direction.UP);
+        }
+      }
+      if (e.key === 'ArrowDown' || e.key === 's') {
+        if (direction !== Direction.UP) {
+          setDirection(Direction.DOWN);
+        }
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a') {
+        if (direction !== Direction.RIGHT) {
+          setDirection(Direction.LEFT);
+        }
+      }
+      if (e.key === 'ArrowRight' || e.key === 'd') {
+        if (direction !== Direction.LEFT) {
+          setDirection(Direction.RIGHT);
+        }
+      }
+      if (e.key === ' ') {
+        setDirection(Direction.STOP);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [direction]);
+
+  if (gameOver) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center flex flex-col items-center gap-3">
+          <h1 className="text-4xl font-bold text-red-300">Game Over</h1>
+          <h2 className="text-2xl">Score : {score}</h2>
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg"
+            onClick={() => window.location.reload()}
+            autoFocus
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Restart
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex justify-center items-center h-screen flex-col gap-3">
+      <div className="text-center">
+        {/* แสดงเฉพาะบนหน้าจอที่ใหญ่กว่า md */}
+        <h1 className="text-4xl font-bold text-white">Snake Game</h1>
+        <p className="text-lg text-white hidden md:block">
+          Use arrow keys or WASD to move the snake
+        </p>
+      </div>
+
+      <div>
+        <h1 className="text-2xl font-bold text-white">Score : {score}</h1>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={panelWidth * gridSize}
+        height={panelHeight * gridSize}
+        style={{
+          backgroundColor: Colors.BACKGROUND,
+          border: '1px solid black',
+        }}
+      ></canvas>
+
+      {/* แสดงเฉพาะบนหน้าจอที่เล็กกว่า md */}
+      <div className="flex gap-1 flex-col md:hidden">
+        <div className="flex gap-3 justify-between">
+          <p className="text-center">&nbsp;</p>
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg text-center "
+            onClick={() => setDirection(Direction.UP)}
+          >
+            <IconArrowUp size={35} />
+          </button>
+          <p className="text-center">&nbsp;</p>
+        </div>
+
+        <div className="flex gap-1">
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg"
+            onClick={() => setDirection(Direction.LEFT)}
+          >
+            <IconArrowLeft size={35} />
+          </button>
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg"
+            onClick={() => setDirection(Direction.STOP)}
+          >
+            <IconPlayerStop size={35} />
+          </button>
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg"
+            onClick={() => setDirection(Direction.RIGHT)}
+          >
+            <IconArrowRight size={35} />
+          </button>
+        </div>
+
+        <div className="flex gap-3 justify-between">
+          <p className="text-center">&nbsp;</p>
+          <button
+            className="btn border-black font-bold p-3 bg-black rounded-lg"
+            onClick={() => setDirection(Direction.DOWN)}
+          >
+            <IconArrowDown size={35} />
+          </button>
+          <p className="text-center">&nbsp;</p>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default SnakeGame;
