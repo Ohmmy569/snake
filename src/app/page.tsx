@@ -27,13 +27,12 @@ let gameSpeed = 100;
 let panelHeight = mapSize;
 let panelWidth = mapSize;
 
-if (window.innerWidth < 768) {
+if (typeof window !== 'undefined' && window.innerWidth < 768) {
   mapSize = 18;
   gridSize = 20;
   gameSpeed = 100;
   panelHeight = mapSize;
   panelWidth = mapSize;
-  console.log('Mobile');
 }
 
 const SnakeGame = () => {
@@ -54,6 +53,14 @@ const SnakeGame = () => {
   const [direction, setDirection] = useState(Direction.STOP);
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+
+  const snakeRef = useRef(snake);
+  const directionRef = useRef(direction);
+
+  useEffect(() => {
+    snakeRef.current = snake;
+    directionRef.current = direction;
+  }, [snake, direction]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -135,7 +142,7 @@ const SnakeGame = () => {
         case Direction.RIGHT:
           setSnake((prev) => ({ ...prev, x: prev.x + gridSize }));
           break;
-        default:
+        case Direction.STOP:
           break;
       }
 
@@ -172,7 +179,7 @@ const SnakeGame = () => {
     const gameInterval = setInterval(() => {
       drawGame();
       logic();
-    }, gameSpeed);
+    }, speed);
 
     return () => {
       clearInterval(gameInterval);
